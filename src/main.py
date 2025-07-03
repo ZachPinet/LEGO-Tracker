@@ -59,13 +59,20 @@ def save_set_data(set_id, data, set_data_dir='Set Data'):
 # This returns a list of set IDs that need a specific part ID.
 def search_sets_by_part(part_id, set_data_dir='Set Data'):
     matching_sets = []
+
     for set_file in os.listdir(set_data_dir):
-        with open(os.path.join(set_data_dir, set_file), 'r') as f:
-            parts = json.load(f)
+        if not set_file.endswith('.txt'):
+            continue
+
+        file_path = os.path.join(set_data_dir, set_file)
+        with open(file_path, 'r') as f:
+            content = f.read().strip()
+            parts = json.loads(content)
             for part in parts:
                 if part["id"] == part_id and part["have"] < part["needed"]:
                     matching_sets.append(set_file[:-4])
                     break
+
     return matching_sets
 
 
