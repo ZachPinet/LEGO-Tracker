@@ -7,6 +7,26 @@ from tkinter import simpledialog, messagebox, ttk
 import settings
 
 
+# This configures the aethetics of the root window.
+def configure_styles(root):
+    root.configure(bg='#00173c')
+
+    label_font = ('Rockwell', 20, 'bold', 'underline')
+    button_font = ('Arial', 12, 'bold')
+    default_font = ('Arial', 12)
+
+    style = ttk.Style()
+    style.configure('TButton', font=button_font, padding=10)
+    style.configure('TCombobox', font=default_font)
+
+    return {
+        'bg': '#00173c',
+        'label_font': label_font,
+        'button_font': button_font,
+        'default_font': default_font
+    }
+
+
 # This uses the Rebrickable API to get a parts list for a set ID.
 def get_set_parts(set_id):
     url = f"https://rebrickable.com/api/v3/lego/sets/{set_id}/parts/?page_size=1000"
@@ -123,10 +143,25 @@ def main():
     root = tk.Tk()
     root.title("Lego Set Organizer")
 
-    tk.Label(root, text="Select a Set:").pack(pady=5)
+    styles = configure_styles(root)
+
+    # Get window size and (roughly) center it
+    screen_width = root.winfo_screenwidth()
+    screen_height = root.winfo_screenheight()
+    win_width = screen_width // 2
+    win_height = screen_height // 2
+    x = (screen_width // 2) - (win_width // 2)
+    y = (screen_height // 2) - (win_height // 2)
+
+    root.geometry(f"{win_width}x{win_height}+{x}+{y}")
+
+    tk.Label(root, text="Select a Set:", 
+             font=styles['label_font'], 
+             bg=styles['bg'], fg='white').pack(pady=10)
+    
     sets = list_sets(set_data_dir)
-    selected_set = ttk.Combobox(root, values=sets)
-    selected_set.pack()
+    selected_set = ttk.Combobox(root, values=sets, font=styles['default_font'])
+    selected_set.pack(pady=5)
 
     # Load the data for a selected set ID
     def load_selected():
@@ -150,14 +185,22 @@ def main():
         if part_id:
             results = search_sets_by_part(part_id, set_data_dir)
             if results:
-                messagebox.showinfo("Found In Sets", ", ".join(results))
+                messagebox.showinfo("Found In Sets", "\n".join(results))
             else:
                 messagebox.showinfo("Not Found", "Part not found in any tracked set.")
 
-    tk.Button(root, text="Load Set", command=load_selected).pack(pady=5)
-    tk.Button(root, text="Create New Set", command=create_set).pack(pady=5)
-    tk.Button(root, text="Search Part ID", command=search).pack(pady=5)
-    tk.Button(root, text="Exit", command=root.destroy).pack(pady=5)
+    tk.Button(root, text="Load Set", command=load_selected,
+              font=styles['button_font'], bg='#4CAF50', fg='white',
+              padx=20, pady=5).pack(pady=5)
+    tk.Button(root, text="Create New Set", command=create_set,
+              font=styles['button_font'], bg='#2196F3', fg='white',
+              padx=20, pady=5).pack(pady=5)
+    tk.Button(root, text="Search Part ID", command=search,
+              font=styles['button_font'], bg='#FF9800', fg='white',
+              padx=20, pady=5).pack(pady=5)
+    tk.Button(root, text="Exit", command=root.destroy,
+              font=styles['button_font'], bg='#f44336', fg='white',
+              padx=20, pady=5).pack(pady=5)
 
     root.mainloop()
 
