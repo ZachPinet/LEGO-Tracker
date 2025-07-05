@@ -27,6 +27,18 @@ def configure_styles(root):
     }
 
 
+# This configures the size and position of the window.
+def configure_size(window):
+    screen_width = window.winfo_screenwidth()
+    screen_height = window.winfo_screenheight()
+    win_width = screen_width // 2
+    win_height = screen_height // 2
+    x = (screen_width // 2) - (win_width // 2)
+    y = (screen_height // 2) - (win_height // 2)
+
+    return f"{win_width}x{win_height}+{x}+{y}"
+
+
 # This uses the Rebrickable API to get a parts list for a set ID.
 def get_set_parts(set_id):
     url = f"https://rebrickable.com/api/v3/lego/sets/{set_id}/parts/?page_size=1000"
@@ -97,11 +109,12 @@ def search_sets_by_part(part_id, set_data_dir='Set Data'):
 
 
 # This shows a list of the part data from a specific set.
-def show_set_grid(set_id, set_data_dir='Set Data'):
+def show_set_grid(set_id, columns=3, set_data_dir='Set Data'):
     data = load_set_data(set_id, set_data_dir)
 
     grid = tk.Toplevel()
     grid.title(f"Viewing Set: {set_id}")
+    grid.geometry(configure_size(grid))
 
     canvas = tk.Canvas(grid)
     frame = ttk.Frame(canvas)
@@ -139,21 +152,13 @@ def show_set_grid(set_id, set_data_dir='Set Data'):
 # This sets up the GUI for the main menu.
 def main():
     set_data_dir = 'Set Data'
+    columns = 3
 
     root = tk.Tk()
     root.title("Lego Set Organizer")
+    root.geometry(configure_size(root))
 
     styles = configure_styles(root)
-
-    # Get window size and (roughly) center it
-    screen_width = root.winfo_screenwidth()
-    screen_height = root.winfo_screenheight()
-    win_width = screen_width // 2
-    win_height = screen_height // 2
-    x = (screen_width // 2) - (win_width // 2)
-    y = (screen_height // 2) - (win_height // 2)
-
-    root.geometry(f"{win_width}x{win_height}+{x}+{y}")
 
     tk.Label(root, text="Select a Set:", 
              font=styles['label_font'], 
@@ -166,7 +171,7 @@ def main():
     # Load the data for a selected set ID
     def load_selected():
         if selected_set.get():
-            show_set_grid(selected_set.get(), set_data_dir)
+            show_set_grid(selected_set.get(), columns, set_data_dir)
 
     # Create a new file to track the data of a new set
     def create_set():
