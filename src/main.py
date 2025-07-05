@@ -190,16 +190,16 @@ def main():
                 messagebox.showinfo("Not Found", "Part not found in any tracked set.")
 
     tk.Button(root, text="Load Set", command=load_selected,
-              font=styles['button_font'], bg='#4CAF50', fg='white',
+              font=styles['button_font'], bg='#30ce30', fg='white',
               padx=20, pady=5).pack(pady=5)
     tk.Button(root, text="Create New Set", command=create_set,
-              font=styles['button_font'], bg='#2196F3', fg='white',
+              font=styles['button_font'], bg='#309bff', fg='white',
               padx=20, pady=5).pack(pady=5)
     tk.Button(root, text="Search Part ID", command=search,
-              font=styles['button_font'], bg='#FF9800', fg='white',
+              font=styles['button_font'], bg='#ffce30', fg='white',
               padx=20, pady=5).pack(pady=5)
     tk.Button(root, text="Exit", command=root.destroy,
-              font=styles['button_font'], bg='#f44336', fg='white',
+              font=styles['button_font'], bg='#ff3030', fg='white',
               padx=20, pady=5).pack(pady=5)
 
     root.mainloop()
