@@ -7,9 +7,9 @@ from tkinter import simpledialog, messagebox, ttk
 import settings
 
 
-# This configures the aethetics of the root window.
-def configure_styles(root):
-    root.configure(bg='#00173c')
+# This configures the aethetics of the window.
+def configure_styles(window):
+    window.configure(bg='#00173c')
 
     label_font = ('Rockwell', 20, 'bold', 'underline')
     button_font = ('Arial', 12, 'bold')
@@ -116,37 +116,99 @@ def show_set_grid(set_id, columns=3, set_data_dir='Set Data'):
     grid.title(f"Viewing Set: {set_id}")
     grid.geometry(configure_size(grid))
 
-    canvas = tk.Canvas(grid)
-    frame = ttk.Frame(canvas)
-    scrollbar = ttk.Scrollbar(grid, orient="vertical", command=canvas.yview)
-    canvas.configure(yscrollcommand=scrollbar.set)
+    # Create main frame with both vertical and horizontal scrollbars
+    main_frame = tk.Frame(grid)
+    main_frame.pack(fill="both", expand=True)
 
-    scrollbar.pack(side="right", fill="y")
+    # Create and position the scrollbars
+    v_scrollbar = ttk.Scrollbar(main_frame, orient="vertical")
+    v_scrollbar.pack(side="right", fill="y")
+    h_scrollbar = ttk.Scrollbar(main_frame, orient="horizontal")
+    h_scrollbar.pack(side="bottom", fill="x")
+
+    # Connect canvas to scrollbars and scrollbars to canvas
+    canvas = tk.Canvas(main_frame, 
+                       yscrollcommand=v_scrollbar.set,
+                       xscrollcommand=h_scrollbar.set)
     canvas.pack(side="left", fill="both", expand=True)
-    canvas.create_window((0, 0), window=frame, anchor="nw")
 
+    v_scrollbar.config(command=canvas.yview)
+    h_scrollbar.config(command=canvas.xview)
+
+    # Frame to hold the grid content
+    content_frame = tk.Frame(canvas)
+    canvas.create_window((0, 0), window=content_frame, anchor="nw")
+
+    # Mouse wheel scrolling events
+    def on_mousewheel(event):
+        canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+    
+    def on_shift_mousewheel(event):
+        canvas.xview_scroll(int(-1*(event.delta/120)), "units")
+
+    # Bind mouse wheel events
+    canvas.bind("<MouseWheel>", on_mousewheel)
+    canvas.bind("<Shift-MouseWheel>", on_shift_mousewheel)
+    grid.bind("<MouseWheel>", on_mousewheel)
+    grid.bind("<Shift-MouseWheel>", on_shift_mousewheel)
+
+    # Set boundaries for the scrollbars
     def on_configure(event):
         canvas.configure(scrollregion=canvas.bbox("all"))
-    frame.bind("<Configure>", on_configure)
+    content_frame.bind("<Configure>", on_configure)
 
-    # Save any changes made
+    '''# Save any changes made
     def update_and_save(index, entry):
+        print(entry.get())
         try:
-            data[index]["have"] = int(entry.get())
+            data[index]['have'] = int(entry.get())
             save_set_data(set_id, data, set_data_dir)
         except ValueError:
-            messagebox.showerror("Invalid input", "Please enter a valid number.")
+            messagebox.showerror("Invalid input", "Please use a valid number.")
+            # Change scope ?????
+            if data[index]['have'] >= data[index]['needed']:
+                messagebox.showerror("Invalid input", 
+                                     "'Have' must be less than 'Needed'.")
+                entry.delete(0, tk.END)
+                entry.insert(0, str(data[index]['have']))'''
+    
+    # Revert changes from invalid entry
+    def delete_and_reinsert(entry, index):
+        entry.delete(0, tk.END)
+        entry.insert(0, str(data[index]['have']))
+    
+    # Save any valid changes made
+    def update_and_save(entry, index):
+        try:
+            value = int(entry.get())
+        except ValueError:
+            messagebox.showerror("Invalid Input", 
+                                 "Please enter a valid number.", parent=grid)
+            delete_and_reinsert(entry, index)
+            return
+        
+        if value < 0:
+            messagebox.showerror("Invalid Input", 
+                                 "'Have' cannot be negative.", parent=grid)
+            delete_and_reinsert(entry, index)
+        elif value > data[index]['needed']:
+            messagebox.showerror("Invalid Input", 
+                                 "'Have' cannot be greater than 'Needed'.", parent=grid)
+            delete_and_reinsert(entry, index)
+        else:
+            data[index]['have'] = value
+            save_set_data(set_id, data, set_data_dir)
 
     for i, part in enumerate(data):
-        tk.Label(frame, text=f"ID: {part['id']}").grid(row=i, column=0, padx=5, pady=2)
-        tk.Label(frame, text=f"Color: {part['color']}").grid(row=i, column=1, padx=5, pady=2)
-        tk.Label(frame, text=f"Need: {part['needed']}").grid(row=i, column=2, padx=5, pady=2)
-        entry = tk.Entry(frame, width=5)
+        tk.Label(content_frame, text=f"ID: {part['id']}").grid(row=i, column=0, padx=5, pady=2)
+        tk.Label(content_frame, text=f"Color: {part['color']}").grid(row=i, column=1, padx=5, pady=2)
+        tk.Label(content_frame, text=f"Need: {part['needed']}").grid(row=i, column=2, padx=5, pady=2)
+        entry = tk.Entry(content_frame, width=5)
         entry.insert(0, str(part['have']))
         entry.grid(row=i, column=3, padx=5, pady=2)
-        entry.bind("<FocusOut>", lambda e, idx=i, ent=entry: update_and_save(idx, ent))
+        entry.bind("<FocusOut>", lambda e, ent=entry, idx=i: update_and_save(ent, idx))
 
-    tk.Button(frame, text="Back", command=grid.destroy).grid(row=len(data)+1, column=0, pady=10)
+    tk.Button(content_frame, text="Back", command=grid.destroy).grid(row=len(data)+1, column=0, pady=10)
 
 
 # This sets up the GUI for the main menu.
