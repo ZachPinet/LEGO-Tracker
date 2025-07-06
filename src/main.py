@@ -1,7 +1,10 @@
+import io
 import json
 import os
 import requests
 import tkinter as tk
+import urllib.request
+from PIL import Image, ImageTk
 from tkinter import simpledialog, messagebox, ttk
 
 import settings
@@ -41,7 +44,10 @@ def configure_size(window):
 
 # This uses the Rebrickable API to get a parts list for a set ID.
 def get_set_parts(set_id):
-    url = f"https://rebrickable.com/api/v3/lego/sets/{set_id}/parts/?page_size=1000"
+    url = (
+        f"https://rebrickable.com/api/v3/lego/sets/{set_id}/parts/"
+        "?page_size=1000"
+    )
 
     headers = {"Authorization": f"key {settings.REBRICKABLE_API_KEY}"}
     response = requests.get(url, headers=headers)
@@ -116,6 +122,8 @@ def show_set_grid(set_id, columns=3, set_data_dir='Set Data'):
     grid.title(f"Viewing Set: {set_id}")
     grid.geometry(configure_size(grid))
 
+    styles = configure_styles(grid)
+
     # Create main frame with both vertical and horizontal scrollbars
     main_frame = tk.Frame(grid)
     main_frame.pack(fill="both", expand=True)
@@ -127,9 +135,11 @@ def show_set_grid(set_id, columns=3, set_data_dir='Set Data'):
     h_scrollbar.pack(side="bottom", fill="x")
 
     # Connect canvas to scrollbars and scrollbars to canvas
-    canvas = tk.Canvas(main_frame, 
-                       yscrollcommand=v_scrollbar.set,
-                       xscrollcommand=h_scrollbar.set)
+    canvas = tk.Canvas(
+        main_frame, 
+        yscrollcommand=v_scrollbar.set,
+        xscrollcommand=h_scrollbar.set
+    )
     canvas.pack(side="left", fill="both", expand=True)
 
     v_scrollbar.config(command=canvas.yview)
@@ -156,21 +166,6 @@ def show_set_grid(set_id, columns=3, set_data_dir='Set Data'):
     def on_configure(event):
         canvas.configure(scrollregion=canvas.bbox("all"))
     content_frame.bind("<Configure>", on_configure)
-
-    '''# Save any changes made
-    def update_and_save(index, entry):
-        print(entry.get())
-        try:
-            data[index]['have'] = int(entry.get())
-            save_set_data(set_id, data, set_data_dir)
-        except ValueError:
-            messagebox.showerror("Invalid input", "Please use a valid number.")
-            # Change scope ?????
-            if data[index]['have'] >= data[index]['needed']:
-                messagebox.showerror("Invalid input", 
-                                     "'Have' must be less than 'Needed'.")
-                entry.delete(0, tk.END)
-                entry.insert(0, str(data[index]['have']))'''
     
     # Revert changes from invalid entry
     def delete_and_reinsert(entry, index):
@@ -182,39 +177,147 @@ def show_set_grid(set_id, columns=3, set_data_dir='Set Data'):
         try:
             value = int(entry.get())
         except ValueError:
-            messagebox.showerror("Invalid Input", 
-                                 "Please enter a valid number.", parent=grid)
+            messagebox.showerror(
+                "Invalid Input", 
+                "Please enter a valid number.", 
+                parent=grid
+            )
             delete_and_reinsert(entry, index)
             return
         
         if value < 0:
-            messagebox.showerror("Invalid Input", 
-                                 "'Have' cannot be negative.", parent=grid)
+            messagebox.showerror(
+                "Invalid Input", 
+                "'Have' cannot be negative.", 
+                parent=grid
+            )
             delete_and_reinsert(entry, index)
         elif value > data[index]['needed']:
-            messagebox.showerror("Invalid Input", 
-                                 "'Have' cannot be greater than 'Needed'.", parent=grid)
+            messagebox.showerror(
+                "Invalid Input", 
+                "'Have' cannot be greater than 'Needed'.", 
+                parent=grid
+            )
             delete_and_reinsert(entry, index)
         else:
             data[index]['have'] = value
             save_set_data(set_id, data, set_data_dir)
-
+    
+    # Create the grid layout. Each part takes up 3 rows and 6 columns
     for i, part in enumerate(data):
-        tk.Label(content_frame, text=f"ID: {part['id']}").grid(row=i, column=0, padx=5, pady=2)
-        tk.Label(content_frame, text=f"Color: {part['color']}").grid(row=i, column=1, padx=5, pady=2)
-        tk.Label(content_frame, text=f"Need: {part['needed']}").grid(row=i, column=2, padx=5, pady=2)
-        entry = tk.Entry(content_frame, width=5)
-        entry.insert(0, str(part['have']))
-        entry.grid(row=i, column=3, padx=5, pady=2)
-        entry.bind("<FocusOut>", lambda e, ent=entry, idx=i: update_and_save(ent, idx))
+        row = i // columns
+        col = i % columns
+        
+        # Base position for the current part
+        base_row = row * 3
+        base_col = col * 6
+        
+        # Load and display image
+        try:
+            with urllib.request.urlopen(part['image']) as response:
+                img_data = response.read()
+            
+            # Open with PIL and resize to 51x51
+            pil_image = Image.open(io.BytesIO(img_data))
+            pil_image = pil_image.resize((51, 51), Image.Resampling.LANCZOS)
+            photo = ImageTk.PhotoImage(pil_image)
+            
+            # Create label with image
+            img_label = tk.Label(
+                content_frame, image=photo, 
+                width=51, height=51
+            )
+            img_label.image = photo  # Keep a reference
+            img_label.grid(
+                row=base_row, column=base_col, rowspan=2, 
+                padx=4, pady=4, sticky="nw"
+            )
+        
+        # Fallback to placeholder if image loading fails
+        except Exception as e:
+            img_frame = tk.Frame(
+                content_frame, width=51, height=51, 
+                bg='lightgray', relief='solid', bd=1
+            )
+            img_frame.grid(
+                row=base_row, column=base_col, rowspan=2, 
+                padx=4, pady=4, sticky="nw"
+            )
+            img_frame.grid_propagate(False)
 
-    tk.Button(content_frame, text="Back", command=grid.destroy).grid(row=len(data)+1, column=0, pady=10)
+            img_label = tk.Label(
+                img_frame, text="IMG", 
+                bg='lightgray', font=('Arial', 8)
+            )
+            img_label.place(relx=0.5, rely=0.5, anchor="center")
+
+        # ID field
+        id_label = tk.Label(
+            content_frame, 
+            text=f"ID: {part['id']}", 
+            font=('Arial', 10, 'bold')
+        )
+        id_label.grid(
+            row=base_row, column=base_col+2, 
+            padx=4, pady=2, sticky="w"
+        )
+
+        # Needed field
+        needed_label = tk.Label(
+            content_frame, 
+            text=f"Need: {part['needed']}", 
+            font=('Arial', 10)
+        )
+        needed_label.grid(
+            row=base_row, column=base_col+4, 
+            padx=4, pady=2, sticky="w"
+        )
+
+        # Color field
+        color_label = tk.Label(
+            content_frame, 
+            text=f"Color: {part['color']}", 
+            font=('Arial', 10)
+        )
+        color_label.grid(
+            row=base_row+1, column=base_col+2, 
+            padx=4, pady=2, sticky="w"
+        )
+        
+        # Have field
+        have_frame = tk.Frame(content_frame)
+        have_frame.grid(
+            row=base_row+1, column=base_col+4, 
+            padx=4, pady=2, sticky="w"
+        )
+        
+        # Allow the have field to get entries
+        have_label = tk.Label(have_frame, text="Have:", font=('Arial', 10))
+        have_label.pack(side="left")
+        entry = tk.Entry(have_frame, width=5, font=('Arial', 10))
+        entry.insert(0, str(part['have']))
+        entry.pack(side="left", padx=(4, 0))
+        entry.bind(
+            "<FocusOut>", lambda e, ent=entry, idx=i: 
+            update_and_save(ent, idx)
+        )
+    
+    # Back button
+    grid_back_button = tk.Button(
+        content_frame, text="Back", command=grid.destroy, 
+        font=('Arial', 12, 'bold'), bg='#ff3030', fg='white',
+        padx=20, pady=10
+    )
+    grid_back_button.grid(
+        row=(len(data)//columns + 1)*3, column=0, 
+        pady=20, columnspan=6
+    )
 
 
 # This sets up the GUI for the main menu.
 def main():
     set_data_dir = 'Set Data'
-    columns = 3
+    columns = 5
 
     root = tk.Tk()
     root.title("Lego Set Organizer")
@@ -222,9 +325,13 @@ def main():
 
     styles = configure_styles(root)
 
-    tk.Label(root, text="Select a Set:", 
-             font=styles['label_font'], 
-             bg=styles['bg'], fg='white').pack(pady=10)
+    # Text at the top of the menu
+    text_label = tk.Label(
+        root, text="Select a Set:", 
+        font=styles['label_font'], 
+        bg=styles['bg'], fg='white'
+    )
+    text_label.pack(pady=10)
     
     sets = list_sets(set_data_dir)
     selected_set = ttk.Combobox(root, values=sets, font=styles['default_font'])
@@ -252,22 +359,41 @@ def main():
         if part_id:
             results = search_sets_by_part(part_id, set_data_dir)
             if results:
-                messagebox.showinfo("Found In Sets", "\n".join(results))
+                messagebox.showinfo(
+                    "Found In Sets", 
+                    "\n".join(results)
+                )
             else:
-                messagebox.showinfo("Not Found", "Part not found in any tracked set.")
+                messagebox.showinfo(
+                    "Not Found", 
+                    "Part not found in any tracked set."
+                )
 
-    tk.Button(root, text="Load Set", command=load_selected,
-              font=styles['button_font'], bg='#30ce30', fg='white',
-              padx=20, pady=5).pack(pady=5)
-    tk.Button(root, text="Create New Set", command=create_set,
-              font=styles['button_font'], bg='#309bff', fg='white',
-              padx=20, pady=5).pack(pady=5)
-    tk.Button(root, text="Search Part ID", command=search,
-              font=styles['button_font'], bg='#ffce30', fg='white',
-              padx=20, pady=5).pack(pady=5)
-    tk.Button(root, text="Exit", command=root.destroy,
-              font=styles['button_font'], bg='#ff3030', fg='white',
-              padx=20, pady=5).pack(pady=5)
+    # Create buttons for the main menu
+    load_button = tk.Button(
+        root, text="Load Set", command=load_selected,
+        font=styles['button_font'], bg='#30ce30', fg='white',
+        padx=20, pady=5
+    )
+    load_button.pack(pady=5)
+    create_button = tk.Button(
+        root, text="Create New Set", command=create_set,
+        font=styles['button_font'], bg='#309bff', fg='white',
+        padx=20, pady=5
+    )
+    create_button.pack(pady=5)
+    search_button = tk.Button(
+        root, text="Search Part ID", command=search,
+        font=styles['button_font'], bg='#ffce30', fg='white',
+        padx=20, pady=5
+    )
+    search_button.pack(pady=5)
+    exit_button = tk.Button(
+        root, text="Exit", command=root.destroy,
+        font=styles['button_font'], bg='#ff3030', fg='white',
+        padx=20, pady=5
+    )
+    exit_button.pack(pady=5)
 
     root.mainloop()
 
