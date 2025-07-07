@@ -69,7 +69,7 @@ def create_new_set(set_id, set_data_dir='Set Data'):
         part_data.append({
             "id": part["part"]["part_num"],
             "color": part["color"]["name"],
-            "needed": part["quantity"],
+            "need": part["quantity"],
             "have": 0,
             "image": part["part"]["part_img_url"]
         })
@@ -107,7 +107,7 @@ def search_sets_by_part(part_id, set_data_dir='Set Data'):
             content = f.read().strip()
             parts = json.loads(content)
             for part in parts:
-                if part["id"] == part_id and part["have"] < part["needed"]:
+                if part["id"] == part_id and part["have"] < part["need"]:
                     matching_sets.append(set_file[:-4])
                     break
 
@@ -122,10 +122,12 @@ def show_set_grid(set_id, columns=3, set_data_dir='Set Data'):
     grid.title(f"Viewing Set: {set_id}")
     grid.geometry(configure_size(grid))
 
-    styles = configure_styles(grid)
+    grid.configure(bg='#00173c')
+    bg_color1 = '#f0f0f0'
+    bg_color2 = '#bfbfbf'
 
     # Create main frame with both vertical and horizontal scrollbars
-    main_frame = tk.Frame(grid)
+    main_frame = tk.Frame(grid, bg='#00173c')
     main_frame.pack(fill="both", expand=True)
 
     # Create and position the scrollbars
@@ -138,7 +140,8 @@ def show_set_grid(set_id, columns=3, set_data_dir='Set Data'):
     canvas = tk.Canvas(
         main_frame, 
         yscrollcommand=v_scrollbar.set,
-        xscrollcommand=h_scrollbar.set
+        xscrollcommand=h_scrollbar.set,
+        bg='#00173c'
     )
     canvas.pack(side="left", fill="both", expand=True)
 
@@ -146,7 +149,7 @@ def show_set_grid(set_id, columns=3, set_data_dir='Set Data'):
     h_scrollbar.config(command=canvas.xview)
 
     # Frame to hold the grid content
-    content_frame = tk.Frame(canvas)
+    content_frame = tk.Frame(canvas, bg='#00173c')
     canvas.create_window((0, 0), window=content_frame, anchor="nw")
 
     # Mouse wheel scrolling events
@@ -166,14 +169,27 @@ def show_set_grid(set_id, columns=3, set_data_dir='Set Data'):
     def on_configure(event):
         canvas.configure(scrollregion=canvas.bbox("all"))
     content_frame.bind("<Configure>", on_configure)
-    
+
     # Revert changes from invalid entry
     def delete_and_reinsert(entry, index):
         entry.delete(0, tk.END)
         entry.insert(0, str(data[index]['have']))
+
+    # Check if part is completed and show/hide highlight
+    def update_highlight(part_data, bg_frame, text_widgets, orig_color):
+        if part_data['have'] == part_data['need']:
+            highlight_color = '#90EE90'
+            bg_frame.config(bg=highlight_color, bd=3, relief='solid')
+        else:
+            highlight_color = orig_color  # Original checkered color
+            bg_frame.config(bg=highlight_color, bd=0, relief='flat')
+        
+        # Update background colors for text widgets (no borders)
+        for widget in text_widgets:
+            widget.config(bg=highlight_color)
     
     # Save any valid changes made
-    def update_and_save(entry, index):
+    def update_and_save(entry, index, bg_frame, text_widgets, orig_color):
         try:
             value = int(entry.get())
         except ValueError:
@@ -192,25 +208,37 @@ def show_set_grid(set_id, columns=3, set_data_dir='Set Data'):
                 parent=grid
             )
             delete_and_reinsert(entry, index)
-        elif value > data[index]['needed']:
+        elif value > data[index]['need']:
             messagebox.showerror(
                 "Invalid Input", 
-                "'Have' cannot be greater than 'Needed'.", 
+                "'Have' cannot be greater than 'Need'.", 
                 parent=grid
             )
             delete_and_reinsert(entry, index)
         else:
             data[index]['have'] = value
             save_set_data(set_id, data, set_data_dir)
+            update_highlight(data[index], bg_frame, text_widgets, orig_color)
     
     # Create the grid layout. Each part takes up 3 rows and 6 columns
     for i, part in enumerate(data):
         row = i // columns
         col = i % columns
+
+        bg_color = bg_color1 if (row + col) % 2 == 0 else bg_color2
         
         # Base position for the current part
         base_row = row * 3
         base_col = col * 6
+
+        # Create background frame for the entire part area
+        bg_frame = tk.Frame(content_frame, bg=bg_color, width=300, height=60)
+        bg_frame.grid(
+            row=base_row, column=base_col, 
+            rowspan=2, columnspan=6, 
+            padx=2, pady=2, sticky="nsew"
+        )
+        bg_frame.grid_propagate(False)  # Prevent resizing to content
         
         # Load and display image
         try:
@@ -253,31 +281,28 @@ def show_set_grid(set_id, columns=3, set_data_dir='Set Data'):
 
         # ID field
         id_label = tk.Label(
-            content_frame, 
-            text=f"ID: {part['id']}", 
-            font=('Arial', 10, 'bold')
+            content_frame, text=f"ID: {part['id']}", 
+            font=('Arial', 10, 'bold'), bg=bg_color
         )
         id_label.grid(
             row=base_row, column=base_col+2, 
             padx=4, pady=2, sticky="w"
         )
 
-        # Needed field
-        needed_label = tk.Label(
-            content_frame, 
-            text=f"Need: {part['needed']}", 
-            font=('Arial', 10)
+        # Need field
+        need_label = tk.Label(
+            content_frame, text=f"Need: {part['need']}", 
+            font=('Arial', 10), bg=bg_color
         )
-        needed_label.grid(
+        need_label.grid(
             row=base_row, column=base_col+4, 
             padx=4, pady=2, sticky="w"
         )
 
         # Color field
         color_label = tk.Label(
-            content_frame, 
-            text=f"Color: {part['color']}", 
-            font=('Arial', 10)
+            content_frame, text=f"Color: {part['color']}", 
+            font=('Arial', 10), bg=bg_color
         )
         color_label.grid(
             row=base_row+1, column=base_col+2, 
@@ -285,22 +310,36 @@ def show_set_grid(set_id, columns=3, set_data_dir='Set Data'):
         )
         
         # Have field
-        have_frame = tk.Frame(content_frame)
+        have_frame = tk.Frame(content_frame, bg=bg_color)
         have_frame.grid(
             row=base_row+1, column=base_col+4, 
             padx=4, pady=2, sticky="w"
         )
-        
-        # Allow the have field to get entries
-        have_label = tk.Label(have_frame, text="Have:", font=('Arial', 10))
+        have_label = tk.Label(
+            have_frame, text="Have:", 
+            font=('Arial', 10), bg=bg_color
+        )
         have_label.pack(side="left")
+
+        # Handle entries for Have field
         entry = tk.Entry(have_frame, width=5, font=('Arial', 10))
         entry.insert(0, str(part['have']))
         entry.pack(side="left", padx=(4, 0))
+
+        # Create list of text widgets to get background color updates
+        text_widgets = [
+            id_label, need_label, color_label, 
+            have_frame, have_label
+        ]
+
         entry.bind(
-            "<FocusOut>", lambda e, ent=entry, idx=i: 
-            update_and_save(ent, idx)
+            "<FocusOut>", lambda e, ent=entry, idx=i, bgf=bg_frame, 
+            widgets=text_widgets, orig_color=bg_color: 
+            update_and_save(ent, idx, bgf, widgets, orig_color)
         )
+
+        # Set initial highlight state
+        update_highlight(part, bg_frame, text_widgets, bg_color)
     
     # Back button
     grid_back_button = tk.Button(
