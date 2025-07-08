@@ -195,8 +195,8 @@ def show_set_grid(set_title, columns=5, set_data_dir='Set Data'):
     grid = tk.Toplevel()
     grid.title(f"Viewing Set: {set_title}")
     grid.geometry(configure_size(grid))
-
     grid.configure(bg='#00173c')
+
     bg_color1 = '#f0f0f0'
     bg_color2 = '#bfbfbf'
 
@@ -226,12 +226,19 @@ def show_set_grid(set_title, columns=5, set_data_dir='Set Data'):
     content_frame = tk.Frame(canvas, bg='#00173c')
     canvas.create_window((0, 0), window=content_frame, anchor="nw")
 
-    # Mouse wheel scrolling events
+    # Mouse wheel scrolling events. Stays within content boundaries
     def on_mousewheel(event):
-        canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        if (canvas.canvasy(0) > 0 or 
+            canvas.canvasy(canvas.winfo_height()) < canvas.bbox("all")[3]
+        ):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
     
     def on_shift_mousewheel(event):
-        canvas.xview_scroll(int(-1*(event.delta/120)), "units")
+        if (
+            canvas.canvasx(0) > 0 or 
+            canvas.canvasx(canvas.winfo_width()) < canvas.bbox("all")[2]
+        ):
+            canvas.xview_scroll(int(-1*(event.delta/120)), "units")
 
     # Bind mouse wheel events
     canvas.bind("<MouseWheel>", on_mousewheel)
