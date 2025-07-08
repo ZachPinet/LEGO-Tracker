@@ -42,62 +42,133 @@ def configure_size(window):
     return f"{win_width}x{win_height}+{x}+{y}"
 
 
-# This uses the Rebrickable API to get a parts list for a set ID.
-def get_set_parts(set_id):
-    url = (
-        f"https://rebrickable.com/api/v3/lego/sets/{set_id}/parts/"
-        "?page_size=1000"
-    )
-
+# This gets comprehensive set information from the Rebrickable API
+def get_set_info(set_id):
+    # Get basic set information
+    set_url = f"https://rebrickable.com/api/v3/lego/sets/{set_id}/"
     headers = {"Authorization": f"key {settings.REBRICKABLE_API_KEY}"}
-    response = requests.get(url, headers=headers)
-    if response.status_code != 200:
-        raise Exception("Failed to fetch data from Rebrickable API")
-    return response.json()["results"]
+    
+    set_response = requests.get(set_url, headers=headers)
+    if set_response.status_code != 200:
+        raise Exception("Failed to fetch set info from Rebrickable API")
+    
+    set_info = set_response.json()
+
+    # Get parts list, excluding spares
+    parts_url = f"{set_url}parts/?page_size=1000"
+    parts_response = requests.get(parts_url, headers=headers)
+    if parts_response.status_code != 200:
+        raise Exception("Failed to fetch parts data from Rebrickable API")
+    
+    all_parts = parts_response.json()["results"]
+    non_spare_parts = [p for p in all_parts if not p.get("is_spare", False)]
+    
+    # Separate stickers from regular parts
+    stickers = []
+    parts = []
+    for part in non_spare_parts:
+        if "sticker" in part["part"]["name"].lower():
+            stickers.append(part)
+        else:
+            parts.append(part)
+    
+    return {
+        "set_info": set_info,
+        "parts": parts,
+        "stickers": stickers
+    }
 
 
-# This creates a new .txt file for a set ID.
+# This creates a new .txt file for a set.
 def create_new_set(set_id, set_data_dir='Set Data'):
-    parts = get_set_parts(set_id)
-    set_filename = os.path.join(set_data_dir, f"{set_id}.txt")
+    # Get set information
+    api_data = get_set_info(set_id)
+    set_info = api_data["set_info"]
+    parts = api_data["parts"]
+    stickers = api_data["stickers"]
+
+    # Sanitize set name just in case
+    set_name = set_info["name"]
+    safe_name = "".join(
+        c for c in set_name if c.isalnum() or c in (' ', '-', '_')
+    ).rstrip()
+
+    # Create the new file, unless it already exists
+    set_filename = os.path.join(set_data_dir, f"{set_id} - {safe_name}.txt")
     if os.path.exists(set_filename):
         raise Exception("Set already exists.")
     
-    # Each file contains data for each part in the set
-    part_data = []
+    # Store the set data
+    set_data = {
+        "set_info": {
+            "set_id": set_id,
+            "name": set_name,
+            "year": set_info.get("year"),
+            "num_parts": set_info.get("num_parts"),
+            "set_img_url": set_info.get("set_img_url")
+        },
+        "parts": [],
+        "stickers": []
+    }
+
+    # Process parts
     for part in parts:
-        part_data.append({
+        set_data["parts"].append({
             "id": part["part"]["part_num"],
             "color": part["color"]["name"],
             "need": part["quantity"],
             "have": 0,
             "image": part["part"]["part_img_url"]
         })
+
+    # Process stickers
+    for sticker in stickers:
+        set_data["stickers"].append({
+            "id": sticker["part"]["part_num"],
+            "color": sticker["color"]["name"],
+            "quantity": sticker["quantity"],
+            "image": sticker["part"]["part_img_url"]
+        })
+
     with open(set_filename, 'w') as f:
-        json.dump(part_data, f, indent=2)
+        json.dump(set_data, f, indent=2)
 
 
 # This loops through the .txt files in Set Data and returns the set IDs.
 def list_sets(set_data_dir='Set Data'):
-    return [f[:-4] for f in os.listdir(set_data_dir) if f.endswith(".txt")]
+    sets = []
+    for filename in os.listdir(set_data_dir):
+        if filename.endswith(".txt"):
+            sets.append(filename[:-4])
+    return sets
 
 
 # This loads the data from a set ID's .txt file.
-def load_set_data(set_id, set_data_dir='Set Data'):
-    with open(os.path.join(set_data_dir, f"{set_id}.txt"), 'r') as f:
-        return json.load(f)
+def load_set_data(set_title, set_data_dir='Set Data'):
+    with open(os.path.join(set_data_dir, f"{set_title}.txt"), 'r') as f:
+        data = json.load(f)
+    return data["parts"], data["stickers"]
 
 
 # This saves any updates to the set's data.
-def save_set_data(set_id, data, set_data_dir='Set Data'):
-    with open(os.path.join(set_data_dir, f"{set_id}.txt"), 'w') as f:
-        json.dump(data, f, indent=2)
+def save_set_data(set_title, parts_data, set_data_dir='Set Data'):
+    filepath = os.path.join(set_data_dir, f"{set_title}.txt")
+    
+    # Load existing data to preserve set_info and stickers
+    with open(filepath, 'r') as f:
+        existing_data = json.load(f)
+    
+    # Update only the parts data
+    existing_data["parts"] = parts_data
+    with open(filepath, 'w') as f:
+        json.dump(existing_data, f, indent=2)
 
 
 # This returns a list of set IDs that need a specific part ID.
 def search_sets_by_part(part_id, set_data_dir='Set Data'):
     matching_sets = []
 
+    # Loop through all set files in the directory
     for set_file in os.listdir(set_data_dir):
         if not set_file.endswith('.txt'):
             continue
@@ -105,7 +176,10 @@ def search_sets_by_part(part_id, set_data_dir='Set Data'):
         file_path = os.path.join(set_data_dir, set_file)
         with open(file_path, 'r') as f:
             content = f.read().strip()
-            parts = json.loads(content)
+            data = json.loads(content)
+            parts = data["parts"]
+
+            # If set needs the part, add to results
             for part in parts:
                 if part["id"] == part_id and part["have"] < part["need"]:
                     matching_sets.append(set_file[:-4])
@@ -115,11 +189,11 @@ def search_sets_by_part(part_id, set_data_dir='Set Data'):
 
 
 # This shows a list of the part data from a specific set.
-def show_set_grid(set_id, columns=3, set_data_dir='Set Data'):
-    data = load_set_data(set_id, set_data_dir)
+def show_set_grid(set_title, columns=5, set_data_dir='Set Data'):
+    parts_data, stickers_data = load_set_data(set_title, set_data_dir)
 
     grid = tk.Toplevel()
-    grid.title(f"Viewing Set: {set_id}")
+    grid.title(f"Viewing Set: {set_title}")
     grid.geometry(configure_size(grid))
 
     grid.configure(bg='#00173c')
@@ -173,18 +247,17 @@ def show_set_grid(set_id, columns=3, set_data_dir='Set Data'):
     # Revert changes from invalid entry
     def delete_and_reinsert(entry, index):
         entry.delete(0, tk.END)
-        entry.insert(0, str(data[index]['have']))
+        entry.insert(0, str(parts_data[index]['have']))
 
     # Check if part is completed and show/hide highlight
     def update_highlight(part_data, bg_frame, text_widgets, orig_color):
         if part_data['have'] == part_data['need']:
-            highlight_color = '#90EE90'
+            highlight_color = '#90ee90'
             bg_frame.config(bg=highlight_color, bd=3, relief='solid')
         else:
-            highlight_color = orig_color  # Original checkered color
+            highlight_color = orig_color
             bg_frame.config(bg=highlight_color, bd=0, relief='flat')
         
-        # Update background colors for text widgets (no borders)
         for widget in text_widgets:
             widget.config(bg=highlight_color)
     
@@ -208,7 +281,7 @@ def show_set_grid(set_id, columns=3, set_data_dir='Set Data'):
                 parent=grid
             )
             delete_and_reinsert(entry, index)
-        elif value > data[index]['need']:
+        elif value > parts_data[index]['need']:
             messagebox.showerror(
                 "Invalid Input", 
                 "'Have' cannot be greater than 'Need'.", 
@@ -216,12 +289,14 @@ def show_set_grid(set_id, columns=3, set_data_dir='Set Data'):
             )
             delete_and_reinsert(entry, index)
         else:
-            data[index]['have'] = value
-            save_set_data(set_id, data, set_data_dir)
-            update_highlight(data[index], bg_frame, text_widgets, orig_color)
+            parts_data[index]['have'] = value
+            save_set_data(set_title, parts_data, set_data_dir)
+            update_highlight(
+                parts_data[index], bg_frame, text_widgets, orig_color
+            )
     
     # Create the grid layout. Each part takes up 3 rows and 6 columns
-    for i, part in enumerate(data):
+    for i, part in enumerate(parts_data):
         row = i // columns
         col = i % columns
 
@@ -340,6 +415,54 @@ def show_set_grid(set_id, columns=3, set_data_dir='Set Data'):
 
         # Set initial highlight state
         update_highlight(part, bg_frame, text_widgets, bg_color)
+
+    # Add stickers section if they exist
+    if stickers_data:
+        start_row = (len(parts_data)//columns + 1) * 3
+
+        # Add separator
+        separator = tk.Frame(content_frame, height=2, bg='white')
+        separator.grid(
+            row=start_row, column=0, columnspan=6, pady=10, sticky="ew"
+        )
+        
+        # Stickers title
+        sticker_title = tk.Label(
+            content_frame, text="Stickers:", font=('Arial', 14, 'bold'), 
+            bg='#00173c', fg='white'
+        )
+        sticker_title.grid(row=start_row + 1, column=0, columnspan=6, pady=5)
+        
+        # Display sticker images
+        sticker_row = start_row + 2
+        for i, sticker in enumerate(stickers_data):
+            try:
+                with urllib.request.urlopen(sticker["image"]) as response:
+                    img_data = response.read()
+                
+                pil_image = Image.open(io.BytesIO(img_data))
+                pil_image = pil_image.resize(
+                    (100, 100), Image.Resampling.LANCZOS
+                )
+                photo = ImageTk.PhotoImage(pil_image)
+                
+                sticker_label = tk.Label(content_frame, image=photo)
+                sticker_label.image = photo
+                sticker_label.grid(row=sticker_row, column=i, padx=5, pady=5)
+                
+                info_text = f"ID: {sticker['id']}\nQty: {sticker['quantity']}"
+                info_label = tk.Label(
+                    content_frame, text=info_text, font=('Arial', 8), 
+                    bg='#00173c', fg='white'
+                )
+                info_label.grid(row=sticker_row + 1, column=i, padx=5)
+                
+            except Exception as e:
+                print(f"Could not load sticker image: {e}")
+        
+        back_button_row = sticker_row + 2
+    else:
+        back_button_row = (len(parts_data)//columns + 1) * 3
     
     # Back button
     grid_back_button = tk.Button(
@@ -348,7 +471,7 @@ def show_set_grid(set_id, columns=3, set_data_dir='Set Data'):
         padx=20, pady=10
     )
     grid_back_button.grid(
-        row=(len(data)//columns + 1)*3, column=0, 
+        row=back_button_row, column=0, 
         pady=20, columnspan=6
     )
 
