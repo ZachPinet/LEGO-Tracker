@@ -54,19 +54,63 @@ def get_set_info(set_id):
     
     set_info = set_response.json()
 
-    # Get parts list, excluding spares
+    # Get regular parts list, excluding spares
     parts_url = f"{set_url}parts/?page_size=1000"
     parts_response = requests.get(parts_url, headers=headers)
     if parts_response.status_code != 200:
         raise Exception("Failed to fetch parts data from Rebrickable API")
     
     all_parts = parts_response.json()["results"]
-    non_spare_parts = [p for p in all_parts if not p.get("is_spare", False)]
+    regular_parts = [p for p in all_parts if not p.get("is_spare", False)]
+
+    # Get minifigure parts and merge duplicates
+    minifigs_url = f"{set_url}minifigs/?page_size=1000"
+    minifigs_response = requests.get(minifigs_url, headers=headers)
+    if minifigs_response.status_code != 200:
+        raise Exception("Failed to fetch minifig data from Rebrickable API")
+    
+    minifig_parts = {}
+    minifigs = minifigs_response.json()["results"]
+    for minifig in minifigs:
+        minifig_code = minifig["set_num"]
+        minifig_qty = minifig["quantity"]
+        
+        # Get parts for this specific minifigure
+        minifig_parts_url = (
+            f"https://rebrickable.com/api/v3/lego/minifigs/{minifig_code}/"
+            f"parts/?page_size=1000"
+        )
+        minifig_response = requests.get(minifig_parts_url, headers=headers)
+        parts_data = minifig_response.json()["results"]
+
+        # Add each part (multiplied by minifig quantity and part quantity)
+        for part_data in parts_data:
+            if not part_data.get("is_spare", False):
+                # Calculate total quantity needed
+                part_qty_per_minifig = part_data["quantity"]
+                total_qty = part_qty_per_minifig * minifig_qty
+
+                # Use dictionary to merge duplicates
+                part_key = (
+                    part_data["part"]["part_num"], part_data["color"]["name"]
+                )
+                if part_key in minifig_parts:
+                    minifig_parts[part_key]["quantity"] += total_qty
+                else:
+                    minifig_parts[part_key] = {
+                        "part": part_data["part"], 
+                        "color": part_data["color"], 
+                        "quantity": total_qty
+                    }
+
+    # Convert minifig dictionary to list and combine with regular parts
+    minifig_parts_list = list(minifig_parts.values())
+    all_parts_combined = regular_parts + minifig_parts_list
     
     # Separate stickers from regular parts
     stickers = []
     parts = []
-    for part in non_spare_parts:
+    for part in all_parts_combined:
         if "sticker" in part["part"]["name"].lower():
             stickers.append(part)
         else:
