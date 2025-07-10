@@ -1,6 +1,7 @@
 import io
 import json
 import os
+import re
 import requests
 import tkinter as tk
 import urllib.request
@@ -63,13 +64,42 @@ def get_set_info(set_id):
     all_parts = parts_response.json()["results"]
     regular_parts = [p for p in all_parts if not p.get("is_spare", False)]
 
+    # Get and store category information for all parts
+    categories_cache = {}
+    def get_category_name(cat_id):
+        if cat_id not in categories_cache:
+            try:
+                cat_url = (
+                    f"https://rebrickable.com/api/v3/lego/"
+                    f"part_categories/{cat_id}/"
+                )
+                cat_response = requests.get(cat_url, headers=headers)
+                if cat_response.status_code == 200:
+                    categories_cache[cat_id] = cat_response.json().get(
+                        "name", "Unknown"
+                    )
+                else:
+                    categories_cache[cat_id] = "Unknown"
+            except:
+                categories_cache[cat_id] = "Unknown"
+
+        return categories_cache[cat_id]
+    
+    # Add category names to regular parts
+    for part in regular_parts:
+        part_cat_id = part["part"].get("part_cat_id")
+        part["part"]["category_name"] = (
+            get_category_name(part_cat_id) if part_cat_id else "Unknown"
+        )
+
     # Get minifigure parts and merge duplicates
     minifigs_url = f"{set_url}minifigs/?page_size=1000"
     minifigs_response = requests.get(minifigs_url, headers=headers)
+    minifig_parts = {}
+
     if minifigs_response.status_code != 200:
         raise Exception("Failed to fetch minifig data from Rebrickable API")
     
-    minifig_parts = {}
     minifigs = minifigs_response.json()["results"]
     for minifig in minifigs:
         minifig_code = minifig["set_num"]
@@ -86,11 +116,18 @@ def get_set_info(set_id):
         # Add each part (multiplied by minifig quantity and part quantity)
         for part_data in parts_data:
             if not part_data.get("is_spare", False):
+                # Add category names to minifig parts
+                part_cat_id = part_data["part"].get("part_cat_id")
+                part_data["part"]["category_name"] = (
+                    get_category_name(part_cat_id) 
+                    if part_cat_id else "Unknown"
+                )
+
                 # Calculate total quantity needed
                 part_qty_per_minifig = part_data["quantity"]
                 total_qty = part_qty_per_minifig * minifig_qty
 
-                # Use dictionary to merge duplicates
+                # Merge duplicates
                 part_key = (
                     part_data["part"]["part_num"], part_data["color"]["name"]
                 )
@@ -159,6 +196,8 @@ def create_new_set(set_id, set_data_dir='Set Data'):
     for part in parts:
         set_data["parts"].append({
             "id": part["part"]["part_num"],
+            "name": part["part"]["name"],
+            "category": part["part"]["category_name"],
             "color": part["color"]["name"],
             "need": part["quantity"],
             "have": 0,
@@ -169,6 +208,8 @@ def create_new_set(set_id, set_data_dir='Set Data'):
     for sticker in stickers:
         set_data["stickers"].append({
             "id": sticker["part"]["part_num"],
+            "name": sticker["part"]["name"],
+            "category": sticker["part"]["category_name"],
             "color": sticker["color"]["name"],
             "quantity": sticker["quantity"],
             "image": sticker["part"]["part_img_url"]
@@ -209,27 +250,94 @@ def save_set_data(set_title, parts_data, set_data_dir='Set Data'):
 
 
 # This returns a list of set IDs that need a specific part ID.
-def search_sets_by_part(part_id, set_data_dir='Set Data'):
-    matching_sets = []
+def search_sets(input_query, set_data_dir='Set Data'):
+    # Sanitize and split the search query
+    query = "".join(
+        c for c in input_query if c.isalnum() or c in (' ', '-', "'")
+    )
+    search_terms = [
+        term.strip().lower() for term in query.split() if term.strip()
+    ]
 
-    # Loop through all set files in the directory
+    if not search_terms:
+        return []
+    
+    # Collect all unique parts that are still needed from each set
+    needed_parts = {}
+    
     for set_file in os.listdir(set_data_dir):
         if not set_file.endswith('.txt'):
             continue
-
+            
         file_path = os.path.join(set_data_dir, set_file)
-        with open(file_path, 'r') as f:
-            content = f.read().strip()
-            data = json.loads(content)
-            parts = data["parts"]
-
-            # If set needs the part, add to results
-            for part in parts:
-                if part["id"] == part_id and part["have"] < part["need"]:
-                    matching_sets.append(set_file[:-4])
+        try:
+            with open(file_path, 'r') as f:
+                data = json.load(f)
+                parts = data["parts"]
+                set_name = set_file[:-4]
+                
+                # Add info from each needed part
+                for part in parts:
+                    if part["have"] < part["need"]:
+                        part_key = (part["id"], part["color"])
+                        
+                        if part_key not in needed_parts:
+                            needed_parts[part_key] = {
+                                "part_id": part["id"],
+                                "name": part["name"],
+                                "category": part["category"],
+                                "color": part["color"],
+                                "image_url": part["image"],
+                                "sets_needing": [],
+                                "total_needed": 0
+                            }
+                        
+                        needed_parts[part_key]["sets_needing"].append(set_name)
+                        needed_parts[part_key]["total_needed"] += (
+                            part["need"] - part["have"]
+                        )
+                        
+        except (json.JSONDecodeError, KeyError, FileNotFoundError):
+            continue
+    
+    if not needed_parts:
+        return []
+    
+    # Filter parts based on search terms
+    matching_parts = []
+    
+    for part_info in needed_parts.values():
+        # Prepare searchable fields as word lists
+        def split_into_words(text):
+            if not text:
+                return []
+            # Split on spaces, commas, parentheses, and other common delimiters
+            words = re.split(r'[\s,\(\)\[\]\/\-]+', text.lower())
+            return [word.strip() for word in words if word.strip()]
+        
+        searchable_fields = {
+            "id": split_into_words(part_info["part_id"]),
+            "color": split_into_words(part_info["color"]),
+            "category": split_into_words(part_info["category"]),
+            "name": split_into_words(part_info["name"])
+        }
+        
+        # Check if all search terms have a match
+        all_terms_match = True
+        for term in search_terms:
+            term_found = False
+            for field_words in searchable_fields.values():
+                if term in field_words:
+                    term_found = True
                     break
-
-    return matching_sets
+            if not term_found:
+                all_terms_match = False
+                break
+        
+        if all_terms_match:
+            matching_parts.append(part_info)
+    
+    return matching_parts
 
 
 # This shows a list of the part data from a specific set.
@@ -568,19 +676,25 @@ def main():
 
     # Search in all sets for a specific part ID
     def search():
-        part_id = simpledialog.askstring("Search", "Enter Part ID:")
-        if part_id:
-            results = search_sets_by_part(part_id, set_data_dir)
+        input_query = simpledialog.askstring(
+            "Search Parts", "Enter search terms (space-separated):"
+        )
+        if input_query:
+            results = search_sets(input_query, set_data_dir)
+            # Show a summary message of the first ten results
             if results:
-                messagebox.showinfo(
-                    "Found In Sets", 
-                    "\n".join(results)
-                )
+                summary = f"Found {len(results)} matching parts:\n\n"
+                for result in results[:10]:
+                    summary += f"• {result['part_id']} - {result['name']}\n"
+                    summary += f"  Color: {result['color']}, Category: {result['category']}\n"
+                    summary += f"  Needed in: {', '.join(result['sets_needing'])}\n\n"
+                
+                if len(results) > 10:
+                    summary += f"... and {len(results) - 10} more results"
+                    
+                messagebox.showinfo("Search Results", summary)
             else:
-                messagebox.showinfo(
-                    "Not Found", 
-                    "Part not found in any tracked set."
-                )
+                messagebox.showinfo("No Results", "No matching parts found.")
 
     # Create buttons for the main menu
     load_button = tk.Button(
