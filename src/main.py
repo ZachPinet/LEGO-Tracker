@@ -43,6 +43,21 @@ def configure_size(window):
     return f"{win_width}x{win_height}+{x}+{y}"
 
 
+# These handle mouse wheel scrolling for canvas movement
+def on_mousewheel(canvas, event):
+    if (canvas.canvasy(0) > 0 or 
+        canvas.canvasy(canvas.winfo_height()) < canvas.bbox("all")[3]
+    ):
+        canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+
+def on_shift_mousewheel(canvas, event):
+    if (
+        canvas.canvasx(0) > 0 or 
+        canvas.canvasx(canvas.winfo_width()) < canvas.bbox("all")[2]
+    ):
+        canvas.xview_scroll(int(-1*(event.delta/120)), "units")
+
+
 # This gets comprehensive set information from the Rebrickable API
 def get_set_info(set_id):
     # Get basic set information
@@ -336,24 +351,302 @@ def search_sets(input_query, set_data_dir='Set Data'):
         
         if all_terms_match:
             matching_parts.append(part_info)
-    
+
     return matching_parts
+
+
+# This shows the search interface with a grid of results
+def show_search_window(columns=5, set_data_dir='Set Data'):
+    search_window = tk.Toplevel()
+    search_window.title("Search Parts")
+    search_window.geometry(configure_size(search_window))
+    search_window.configure(bg='#00173c')
+
+    # Search bar at the top
+    search_frame = tk.Frame(search_window, bg='#00173c')
+    search_frame.pack(pady=10)
+    
+    tk.Label(
+        search_frame, text="Search Parts:", font=('Arial', 14, 'bold'), 
+        bg='#00173c', fg='white'
+    ).pack(side="left", padx=5)
+    
+    search_entry = tk.Entry(search_frame, font=('Arial', 12), width=30)
+    search_entry.pack(side="left", padx=5)
+    
+    # Results label
+    results_label = tk.Label(
+        search_window, text="Enter search terms above", 
+        font=('Arial', 12), bg='#00173c', fg='white'
+    )
+    results_label.pack(pady=5)
+
+    # Create main frame with scrollbars for the grid
+    main_frame = tk.Frame(search_window, bg='#00173c')
+    main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+    # Create and position the scrollbars
+    v_scrollbar = ttk.Scrollbar(main_frame, orient="vertical")
+    v_scrollbar.pack(side="right", fill="y")
+    h_scrollbar = ttk.Scrollbar(main_frame, orient="horizontal")
+    h_scrollbar.pack(side="bottom", fill="x")
+
+    # Connect canvas to scrollbars
+    canvas = tk.Canvas(
+        main_frame, 
+        yscrollcommand=v_scrollbar.set, 
+        xscrollcommand=h_scrollbar.set, 
+        bg='#00173c'
+    )
+    canvas.pack(side="left", fill="both", expand=True)
+
+    v_scrollbar.config(command=canvas.yview)
+    h_scrollbar.config(command=canvas.xview)
+
+    # Frame to hold the grid content
+    content_frame = tk.Frame(canvas, bg='#00173c')
+    canvas.create_window((0, 0), window=content_frame, anchor="nw")
+
+    # Mouse wheel scrolling
+    canvas.bind(
+        "<MouseWheel>", lambda event: on_mousewheel(canvas, event)
+    )
+    canvas.bind(
+        "<Shift-MouseWheel>", lambda event: on_shift_mousewheel(canvas, event)
+    )
+    search_window.bind(
+        "<MouseWheel>", lambda event: on_mousewheel(canvas, event)
+    )
+    search_window.bind(
+        "<Shift-MouseWheel>", lambda event: on_shift_mousewheel(canvas, event)
+    )
+
+    # Set boundaries for the scrollbars
+    def on_configure(event):
+        canvas.configure(scrollregion=canvas.bbox("all"))
+    content_frame.bind("<Configure>", on_configure)
+
+    # Display which sets need a specific part
+    def show_sets_needing_part(part_info):
+        sets_text = (
+            f"Sets needing {part_info['part_id']} ({part_info['color']}):\n\n"
+        )
+        for i, set_name in enumerate(part_info['sets_needing'], 1):
+            sets_text += f"{i}. {set_name}\n"
+        sets_text += f"\nTotal needed: {part_info['total_needed']}"
+        
+        messagebox.showinfo(
+            "Sets Needing This Part", sets_text, parent=search_window
+        )
+
+    # Clear the grid of all cells
+    def clear_grid():
+        for widget in content_frame.winfo_children():
+            widget.destroy()
+
+    # Create the search results grid
+    def create_search_grid(results):
+        clear_grid()
+        
+        if not results:
+            no_results_label = tk.Label(
+                content_frame, text="No matching parts found", 
+                font=('Arial', 14), 
+                bg='#00173c', 
+                fg='white'
+            )
+            no_results_label.pack(pady=20)
+            return
+
+        bg_color1 = '#f0f0f0'
+        bg_color2 = '#bfbfbf'
+
+        # Create the grid layout
+        for i, part_info in enumerate(results):
+            row = i // columns
+            col = i % columns
+            bg_color = bg_color1 if (row + col) % 2 == 0 else bg_color2
+            
+            # Base position for the current part
+            base_row = row * 3
+            base_col = col * 6
+
+            # Create background frame for the entire parts area
+            bg_frame = tk.Frame(
+                content_frame, bg=bg_color, width=300, height=80
+            )
+            bg_frame.grid(
+                row=base_row, column=base_col, 
+                rowspan=3, columnspan=6, 
+                padx=2, pady=2, sticky="nsew"
+            )
+            bg_frame.grid_propagate(False)
+            
+            # Make the entire frame clickable
+            def on_part_click(event, part=part_info):
+                show_sets_needing_part(part)
+            
+            bg_frame.bind("<Button-1>", on_part_click)
+            bg_frame.configure(cursor="hand2")  # indicate its clickable
+
+            # Load and display image
+            try:
+                with urllib.request.urlopen(part_info['image_url']) as response:
+                    img_data = response.read()
+                
+                pil_image = Image.open(io.BytesIO(img_data))
+                pil_image = (
+                    pil_image.resize((60, 60), Image.Resampling.LANCZOS)
+                )
+                photo = ImageTk.PhotoImage(pil_image)
+                
+                # Create label with image
+                img_label = tk.Label(
+                    content_frame, image=photo, 
+                    width=60, height=60
+                )
+                img_label.image = photo  # Keep a reference
+                img_label.grid(
+                    row=base_row, column=base_col, rowspan=3, 
+                    padx=4, pady=4, sticky="nw"
+                )
+                img_label.bind("<Button-1>", on_part_click)
+                img_label.configure(cursor="hand2")
+            
+            # Fallback to placeholder if image loading fails
+            except Exception as e:
+                img_frame = tk.Frame(
+                    content_frame, width=60, height=60, 
+                    bg='lightgray', relief='solid', bd=1
+                )
+                img_frame.grid(
+                    row=base_row, column=base_col, rowspan=3, 
+                    padx=4, pady=4, sticky="nw"
+                )
+                img_frame.grid_propagate(False)
+                img_frame.bind("<Button-1>", on_part_click)
+                img_frame.configure(cursor="hand2")
+                
+                img_label = tk.Label(
+                    img_frame, text="IMG", 
+                    bg='lightgray', font=('Arial', 8)
+                )
+                img_label.place(relx=0.5, rely=0.5, anchor="center")
+                img_label.bind("<Button-1>", on_part_click)
+                img_label.configure(cursor="hand2")
+
+            # Part information labels
+            info_labels = []
+            
+            # ID and Name
+            id_name_label = tk.Label(
+                content_frame, 
+                text=f"ID: {part_info['part_id']}", 
+                font=('Arial', 9, 'bold'), 
+                bg=bg_color
+            )
+            id_name_label.grid(
+                row=base_row, column=base_col+2, columnspan=4, 
+                padx=4, pady=1, sticky="w"
+            )
+            info_labels.append(id_name_label)
+            
+            name_label = tk.Label(
+                content_frame, 
+                text=part_info['name'], 
+                font=('Arial', 8), 
+                bg=bg_color, 
+                wraplength=180
+            )
+            name_label.grid(
+                row=base_row+1, column=base_col+2, columnspan=4, 
+                padx=4, pady=1, sticky="w"
+            )
+            info_labels.append(name_label)
+
+            # Color and Category
+            color_label = tk.Label(
+                content_frame, 
+                text=f"Color: {part_info['color']}", 
+                font=('Arial', 8), 
+                bg=bg_color
+            )
+            color_label.grid(
+                row=base_row+2, column=base_col+2, columnspan=2, 
+                padx=4, pady=1, sticky="w"
+            )
+            info_labels.append(color_label)
+            
+            category_label = tk.Label(
+                content_frame, 
+                text=f"Category: {part_info['category']}", 
+                font=('Arial', 8), 
+                bg=bg_color, 
+                wraplength=100
+            )
+            category_label.grid(
+                row=base_row+2, column=base_col+4, columnspan=2, 
+                padx=4, pady=1, sticky="w"
+            )
+            info_labels.append(category_label)
+
+            # Make all labels clickable
+            for label in info_labels:
+                label.bind("<Button-1>", on_part_click)
+                label.configure(cursor="hand2")
+
+        # Add back button
+        back_button_row = (len(results)//columns + 1) * 3
+        back_button = tk.Button(
+            content_frame, text="Back", command=search_window.destroy, 
+            font=('Arial', 12, 'bold'), bg='#ff3030', fg='white',
+            padx=20, pady=10
+        )
+        back_button.grid(row=back_button_row, column=0, pady=20, columnspan=6)
+
+    # Search sets and construct grid accordingly
+    def perform_search():
+        query = search_entry.get().strip()
+        if not query:
+            results_label.config(text="Enter search terms above")
+            clear_grid()
+            return
+        
+        results = search_sets(query, set_data_dir)
+        
+        if results:
+            results_label.config(text=f"Found {len(results)} matching parts:")
+            create_search_grid(results)
+        else:
+            results_label.config(text="No matching parts found")
+            clear_grid()
+
+    # Search button
+    search_button = tk.Button(
+        search_frame, text="Search", command=perform_search,
+        font=('Arial', 12, 'bold'), bg='#30ce30', fg='white',
+        padx=10, pady=2
+    )
+    search_button.pack(side="left", padx=5)
+
+    # Bind Enter key to search
+    search_entry.bind("<Return>", lambda e: perform_search())
+    
+    # Focus on search entry
+    search_entry.focus()
 
 
 # This shows a list of the part data from a specific set.
 def show_set_grid(set_title, columns=5, set_data_dir='Set Data'):
     parts_data, stickers_data = load_set_data(set_title, set_data_dir)
 
-    grid = tk.Toplevel()
-    grid.title(f"Viewing Set: {set_title}")
-    grid.geometry(configure_size(grid))
-    grid.configure(bg='#00173c')
-
-    bg_color1 = '#f0f0f0'
-    bg_color2 = '#bfbfbf'
+    load_window = tk.Toplevel()
+    load_window.title(f"Viewing Set: {set_title}")
+    load_window.geometry(configure_size(load_window))
+    load_window.configure(bg='#00173c')
 
     # Create main frame with both vertical and horizontal scrollbars
-    main_frame = tk.Frame(grid, bg='#00173c')
+    main_frame = tk.Frame(load_window, bg='#00173c')
     main_frame.pack(fill="both", expand=True)
 
     # Create and position the scrollbars
@@ -378,25 +671,19 @@ def show_set_grid(set_title, columns=5, set_data_dir='Set Data'):
     content_frame = tk.Frame(canvas, bg='#00173c')
     canvas.create_window((0, 0), window=content_frame, anchor="nw")
 
-    # Mouse wheel scrolling events. Stays within content boundaries
-    def on_mousewheel(event):
-        if (canvas.canvasy(0) > 0 or 
-            canvas.canvasy(canvas.winfo_height()) < canvas.bbox("all")[3]
-        ):
-            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-    
-    def on_shift_mousewheel(event):
-        if (
-            canvas.canvasx(0) > 0 or 
-            canvas.canvasx(canvas.winfo_width()) < canvas.bbox("all")[2]
-        ):
-            canvas.xview_scroll(int(-1*(event.delta/120)), "units")
-
-    # Bind mouse wheel events
-    canvas.bind("<MouseWheel>", on_mousewheel)
-    canvas.bind("<Shift-MouseWheel>", on_shift_mousewheel)
-    grid.bind("<MouseWheel>", on_mousewheel)
-    grid.bind("<Shift-MouseWheel>", on_shift_mousewheel)
+    # Mouse wheel scrolling
+    canvas.bind(
+        "<MouseWheel>", lambda event: on_mousewheel(canvas, event)
+    )
+    canvas.bind(
+        "<Shift-MouseWheel>", lambda event: on_shift_mousewheel(canvas, event)
+    )
+    load_window.bind(
+        "<MouseWheel>", lambda event: on_mousewheel(canvas, event)
+    )
+    load_window.bind(
+        "<Shift-MouseWheel>", lambda event: on_shift_mousewheel(canvas, event)
+    )
 
     # Set boundaries for the scrollbars
     def on_configure(event):
@@ -428,7 +715,7 @@ def show_set_grid(set_title, columns=5, set_data_dir='Set Data'):
             messagebox.showerror(
                 "Invalid Input", 
                 "Please enter a valid number.", 
-                parent=grid
+                parent=load_window
             )
             delete_and_reinsert(entry, index)
             return
@@ -437,14 +724,14 @@ def show_set_grid(set_title, columns=5, set_data_dir='Set Data'):
             messagebox.showerror(
                 "Invalid Input", 
                 "'Have' cannot be negative.", 
-                parent=grid
+                parent=load_window
             )
             delete_and_reinsert(entry, index)
         elif value > parts_data[index]['need']:
             messagebox.showerror(
                 "Invalid Input", 
                 "'Have' cannot be greater than 'Need'.", 
-                parent=grid
+                parent=load_window
             )
             delete_and_reinsert(entry, index)
         else:
@@ -454,25 +741,27 @@ def show_set_grid(set_title, columns=5, set_data_dir='Set Data'):
                 parts_data[index], bg_frame, text_widgets, orig_color
             )
     
+    bg_color1 = '#f0f0f0'
+    bg_color2 = '#bfbfbf'
+
     # Create the grid layout. Each part takes up 3 rows and 6 columns
     for i, part in enumerate(parts_data):
         row = i // columns
         col = i % columns
-
         bg_color = bg_color1 if (row + col) % 2 == 0 else bg_color2
         
         # Base position for the current part
         base_row = row * 3
         base_col = col * 6
 
-        # Create background frame for the entire part area
+        # Create background frame for the entire parts area
         bg_frame = tk.Frame(content_frame, bg=bg_color, width=300, height=60)
         bg_frame.grid(
             row=base_row, column=base_col, 
             rowspan=2, columnspan=6, 
             padx=2, pady=2, sticky="nsew"
         )
-        bg_frame.grid_propagate(False)  # Prevent resizing to content
+        bg_frame.grid_propagate(False)
         
         # Load and display image
         try:
@@ -624,12 +913,12 @@ def show_set_grid(set_title, columns=5, set_data_dir='Set Data'):
         back_button_row = (len(parts_data)//columns + 1) * 3
     
     # Back button
-    grid_back_button = tk.Button(
-        content_frame, text="Back", command=grid.destroy, 
+    load_window_back_button = tk.Button(
+        content_frame, text="Back", command=load_window.destroy, 
         font=('Arial', 12, 'bold'), bg='#ff3030', fg='white',
         padx=20, pady=10
     )
-    grid_back_button.grid(
+    load_window_back_button.grid(
         row=back_button_row, column=0, 
         pady=20, columnspan=6
     )
@@ -676,25 +965,7 @@ def main():
 
     # Search in all sets for a specific part ID
     def search():
-        input_query = simpledialog.askstring(
-            "Search Parts", "Enter search terms (space-separated):"
-        )
-        if input_query:
-            results = search_sets(input_query, set_data_dir)
-            # Show a summary message of the first ten results
-            if results:
-                summary = f"Found {len(results)} matching parts:\n\n"
-                for result in results[:10]:
-                    summary += f"• {result['part_id']} - {result['name']}\n"
-                    summary += f"  Color: {result['color']}, Category: {result['category']}\n"
-                    summary += f"  Needed in: {', '.join(result['sets_needing'])}\n\n"
-                
-                if len(results) > 10:
-                    summary += f"... and {len(results) - 10} more results"
-                    
-                messagebox.showinfo("Search Results", summary)
-            else:
-                messagebox.showinfo("No Results", "No matching parts found.")
+        show_search_window(columns, set_data_dir)
 
     # Create buttons for the main menu
     load_button = tk.Button(
@@ -710,7 +981,7 @@ def main():
     )
     create_button.pack(pady=5)
     search_button = tk.Button(
-        root, text="Search Part ID", command=search,
+        root, text="Search Parts", command=search,
         font=styles['button_font'], bg='#ffce30', fg='white',
         padx=20, pady=5
     )
