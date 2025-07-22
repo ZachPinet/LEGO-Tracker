@@ -201,7 +201,8 @@ def create_new_set(set_id, set_data_dir='Set Data'):
             "name": set_name,
             "year": set_info.get("year"),
             "num_parts": set_info.get("num_parts"),
-            "set_img_url": set_info.get("set_img_url")
+            "set_img_url": set_info.get("set_img_url"),
+            "completed": False
         },
         "parts": [],
         "stickers": []
@@ -257,9 +258,14 @@ def save_set_data(set_title, parts_data, set_data_dir='Set Data'):
     # Load existing data to preserve set_info and stickers
     with open(filepath, 'r') as f:
         existing_data = json.load(f)
-    
-    # Update only the parts data
+
+    # Update the parts data
     existing_data["parts"] = parts_data
+
+    # Check if set is complete or incomplete
+    all_complete = all(part["have"] >= part["need"] for part in parts_data)
+    existing_data["set_info"]["completed"] = all_complete
+
     with open(filepath, 'w') as f:
         json.dump(existing_data, f, indent=2)
 
@@ -274,6 +280,7 @@ def search_sets(input_query, set_data_dir='Set Data'):
         term.strip().lower() for term in query.split() if term.strip()
     ]
 
+    # Return empty list if there are no search terms
     if not search_terms:
         return []
     
@@ -288,29 +295,37 @@ def search_sets(input_query, set_data_dir='Set Data'):
         try:
             with open(file_path, 'r') as f:
                 data = json.load(f)
+
+                # Skip completed sets
+                if data.get("set_info", {}).get("completed", False):
+                    continue
+
                 parts = data["parts"]
                 set_name = set_file[:-4]
                 
-                # Add info from each needed part
                 for part in parts:
-                    if part["have"] < part["need"]:
-                        part_key = (part["id"], part["color"])
+                    # Skip completed parts
+                    if part["have"] >= part["need"]:
+                        continue
+
+                    part_key = (part["id"], part["color"])
+                    
+                    # Add info from each needed part
+                    if part_key not in needed_parts:
+                        needed_parts[part_key] = {
+                            "part_id": part["id"],
+                            "name": part["name"],
+                            "category": part["category"],
+                            "color": part["color"],
+                            "image_url": part["image"],
+                            "sets_needing": [],
+                            "total_needed": 0
+                        }
                         
-                        if part_key not in needed_parts:
-                            needed_parts[part_key] = {
-                                "part_id": part["id"],
-                                "name": part["name"],
-                                "category": part["category"],
-                                "color": part["color"],
-                                "image_url": part["image"],
-                                "sets_needing": [],
-                                "total_needed": 0
-                            }
-                        
-                        needed_parts[part_key]["sets_needing"].append(set_name)
-                        needed_parts[part_key]["total_needed"] += (
-                            part["need"] - part["have"]
-                        )
+                    needed_parts[part_key]["sets_needing"].append(set_name)
+                    needed_parts[part_key]["total_needed"] += (
+                        part["need"] - part["have"]
+                    )
                         
         except (json.JSONDecodeError, KeyError, FileNotFoundError):
             continue
