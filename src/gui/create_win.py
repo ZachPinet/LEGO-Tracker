@@ -149,7 +149,9 @@ def create_new_set(set_id, set_data_dir='Set Data'):
             "year": set_info.get("year"),
             "num_parts": set_info.get("num_parts"),
             "set_img_url": set_info.get("set_img_url"),
-            "completed": False
+            "completed": False,
+            "parts_found": 0,
+            "notes": ""
         },
         "parts": [],
         "stickers": []
