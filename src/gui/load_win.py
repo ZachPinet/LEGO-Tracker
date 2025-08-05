@@ -98,7 +98,10 @@ def show_set_grid(set_title, columns=5, set_data_dir='Set Data'):
     def update_highlight(part_data, bg_frame, text_widgets, orig_color):
         if part_data['have'] == part_data['need']:
             highlight_color = '#90ee90'
-            bg_frame.config(bg=highlight_color, bd=3, relief='solid')
+            bg_frame.config(bg=highlight_color, bd=0, relief='solid')
+        elif part_data['have'] > 0:
+            highlight_color = '#ffff90'
+            bg_frame.config(bg=highlight_color, bd=0, relief='solid')
         else:
             highlight_color = orig_color
             bg_frame.config(bg=highlight_color, bd=0, relief='flat')
