@@ -318,7 +318,7 @@ def show_set_grid(set_title, columns=5, set_data_dir='Set Data'):
     load_window_back_button = tk.Button(
         content_frame, text="Back", command=load_window.destroy, 
         font=('Arial', 12, 'bold'), bg='#ff3030', fg='white',
-        padx=20, pady=10
+        padx=20, pady=10, cursor='hand2'
     )
     load_window_back_button.grid(
         row=back_button_row, column=0, 

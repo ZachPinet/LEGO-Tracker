@@ -24,7 +24,8 @@ def configure_styles(window):
         'bg': '#00173c',
         'label_font': label_font,
         'button_font': button_font,
-        'default_font': default_font
+        'default_font': default_font,
+        'button_cursor': 'hand2'
     }
 
 
@@ -84,25 +85,25 @@ def main():
     load_button = tk.Button(
         root, text="Load Set", command=load_selected,
         font=styles['button_font'], bg='#30ce30', fg='white',
-        padx=20, pady=5
+        padx=20, pady=5, cursor=styles['button_cursor']
     )
     load_button.pack(pady=5)
     create_button = tk.Button(
         root, text="Create New Set", command=create_set,
         font=styles['button_font'], bg='#309bff', fg='white',
-        padx=20, pady=5
+        padx=20, pady=5, cursor=styles['button_cursor']
     )
     create_button.pack(pady=5)
     search_button = tk.Button(
         root, text="Search Parts", command=search,
         font=styles['button_font'], bg='#ffce30', fg='white',
-        padx=20, pady=5
+        padx=20, pady=5, cursor=styles['button_cursor']
     )
     search_button.pack(pady=5)
     exit_button = tk.Button(
         root, text="Exit", command=root.destroy,
         font=styles['button_font'], bg='#ff3030', fg='white',
-        padx=20, pady=5
+        padx=20, pady=5, cursor=styles['button_cursor']
     )
     exit_button.pack(pady=5)
 

@@ -328,7 +328,7 @@ def show_search_window(columns=5, set_data_dir='Set Data'):
         back_button = tk.Button(
             content_frame, text="Back", command=search_window.destroy, 
             font=('Arial', 12, 'bold'), bg='#ff3030', fg='white',
-            padx=20, pady=10
+            padx=20, pady=10, cursor='hand2'
         )
         back_button.grid(row=back_button_row, column=0, pady=20, columnspan=6)
 
@@ -353,7 +353,7 @@ def show_search_window(columns=5, set_data_dir='Set Data'):
     search_button = tk.Button(
         search_frame, text="Search", command=perform_search,
         font=('Arial', 12, 'bold'), bg='#30ce30', fg='white',
-        padx=10, pady=2
+        padx=10, pady=2, cursor='hand2'
     )
     search_button.pack(side="left", padx=5)
 
