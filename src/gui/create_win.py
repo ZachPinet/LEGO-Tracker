@@ -5,6 +5,15 @@ import requests
 import settings
 
 
+# Split text into individual words for searching
+def split_into_search_words(text):
+    import re
+    if not text:
+        return []
+    # Split on spaces, commas, parentheses, and other common delimiters
+    words = re.split(r'[\s,\(\)\[\]\/\-]+', text.lower())
+    return [word.strip() for word in words if word.strip()]
+
 # This gets comprehensive set information from the Rebrickable API
 def get_set_info(set_id):
     # Get basic set information
@@ -159,25 +168,46 @@ def create_new_set(set_id, set_data_dir='Set Data'):
 
     # Process parts
     for part in parts:
+        # Pre-compute search words for all searchable fields
+        part_id = part["part"]["part_num"]
+        part_name = part["part"]["name"]
+        part_category = part["part"]["category_name"]
+        part_color = part["color"]["name"]
+        
+        # Combine all searchable text and split into words
+        all_search_text = f"{part_id} {part_name} {part_category} {part_color}"
+        search_words = split_into_search_words(all_search_text)
+        
         set_data["parts"].append({
-            "id": part["part"]["part_num"],
-            "name": part["part"]["name"],
-            "category": part["part"]["category_name"],
-            "color": part["color"]["name"],
+            "id": part_id,
+            "name": part_name,
+            "category": part_category,
+            "color": part_color,
             "need": part["quantity"],
             "have": 0,
-            "image": part["part"]["part_img_url"]
+            "image": part["part"]["part_img_url"],
+            "search_words": search_words
         })
 
     # Process stickers
     for sticker in stickers:
+        sticker_id = sticker["part"]["part_num"]
+        sticker_name = sticker["part"]["name"]
+        sticker_category = sticker["part"]["category_name"]
+        sticker_color = sticker["color"]["name"]
+        
+        # Pre-compute search words for stickers too
+        all_searchable_text = f"{sticker_id} {sticker_name} {sticker_category} {sticker_color}"
+        search_words = split_into_search_words(all_searchable_text)
+        
         set_data["stickers"].append({
-            "id": sticker["part"]["part_num"],
-            "name": sticker["part"]["name"],
-            "category": sticker["part"]["category_name"],
-            "color": sticker["color"]["name"],
+            "id": sticker_id,
+            "name": sticker_name,
+            "category": sticker_category,
+            "color": sticker_color,
             "quantity": sticker["quantity"],
-            "image": sticker["part"]["part_img_url"]
+            "image": sticker["part"]["part_img_url"],
+            "search_words": search_words
         })
 
     with open(set_filename, 'w') as f:

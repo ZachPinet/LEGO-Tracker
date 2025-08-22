@@ -14,7 +14,8 @@ from gui.win_helpers import configure_size, on_mousewheel, on_shift_mousewheel
 def search_sets(input_query, set_data_dir='Set Data'):
     # Sanitize and split the search query
     query = "".join(
-        c for c in input_query if c.isalnum() or c in (' ', '-', "'")
+        c for c in input_query
+        if c.isalnum() or c in (' ', '-', "'")
     )
     search_terms = [
         term.strip().lower() for term in query.split() if term.strip()
@@ -48,66 +49,38 @@ def search_sets(input_query, set_data_dir='Set Data'):
                     if part["have"] >= part["need"]:
                         continue
 
-                    part_key = (part["id"], part["color"])
-                    
-                    # Add info from each needed part
-                    if part_key not in needed_parts:
-                        needed_parts[part_key] = {
-                            "part_id": part["id"],
-                            "name": part["name"],
-                            "category": part["category"],
-                            "color": part["color"],
-                            "image_url": part["image"],
-                            "sets_needing": [],
-                            "total_needed": 0
-                        }
+                    part_search_words = part.get("search_words", [])
+
+                    all_terms_match = True
+                    for term in search_terms:
+                        if term not in part_search_words:
+                            all_terms_match = False
+                            break
+
+                    if all_terms_match:
+                        part_key = (part["id"], part["color"])
+
+                        # Add info from each needed part
+                        if part_key not in needed_parts:
+                            needed_parts[part_key] = {
+                                "part_id": part["id"],
+                                "name": part["name"],
+                                "category": part["category"],
+                                "color": part["color"],
+                                "image_url": part["image"],
+                                "sets_needing": [],
+                                "total_needed": 0
+                            }
                         
-                    needed_parts[part_key]["sets_needing"].append(set_name)
-                    needed_parts[part_key]["total_needed"] += (
-                        part["need"] - part["have"]
-                    )
+                        needed_parts[part_key]["sets_needing"].append(set_name)
+                        needed_parts[part_key]["total_needed"] += (
+                            part["need"] - part["have"]
+                        )
                         
         except (json.JSONDecodeError, KeyError, FileNotFoundError):
             continue
     
-    if not needed_parts:
-        return []
-    
-    # Filter parts based on search terms
-    matching_parts = []
-    
-    for part_info in needed_parts.values():
-        # Prepare searchable fields as word lists
-        def split_into_words(text):
-            if not text:
-                return []
-            # Split on spaces, commas, parentheses, and other common delimiters
-            words = re.split(r'[\s,\(\)\[\]\/\-]+', text.lower())
-            return [word.strip() for word in words if word.strip()]
-        
-        searchable_fields = {
-            "id": split_into_words(part_info["part_id"]),
-            "color": split_into_words(part_info["color"]),
-            "category": split_into_words(part_info["category"]),
-            "name": split_into_words(part_info["name"])
-        }
-        
-        # Check if all search terms have a match
-        all_terms_match = True
-        for term in search_terms:
-            term_found = False
-            for field_words in searchable_fields.values():
-                if term in field_words:
-                    term_found = True
-                    break
-            if not term_found:
-                all_terms_match = False
-                break
-        
-        if all_terms_match:
-            matching_parts.append(part_info)
-
-    return matching_parts
+    return list(needed_parts.values())
 
 
 # This shows the search interface with a grid of results
