@@ -1,22 +1,42 @@
 # LEGO-Tracker
 This tool was created to assist in separating a large collection of jumbled LEGO bricks back into their original sets. It makes heavy use of Rebrickable’s API to gather lists of parts for a given set, complete with each part’s ID, color, description, and photo. These parts lists should help the user keep track of their physical brick collection with ease.
 
-### To use this tool:
-1. Go to [Rebrickable’s API page](https://rebrickable.com/api/) and sign up for a free API key. Make sure not to share your API key publicly.
-2. Clone or download this repository to your computer.
-3. In the project directory, create a new file named `.env`.
-4. In the `.env` file, add the following line (replace with your actual API key):
+## Getting Started
+
+### Prerequisites
+- Python 3.9 or higher
+- A [Rebrickable API key](https://rebrickable.com/api/) (free registration required)
+
+### Installation and Setup
+
+#### Windows (cmd)
+```cmd
+git clone https://github.com/ZachPinet/LEGO-Tracker.git
+cd LEGO-Tracker
+python -m venv .venv_legotracker
+.venv_legotracker\Scripts\activate
+pip install .
+echo REBRICKABLE_API_KEY=your_api_key_here > .env
 ```
-REBRICKABLE_API_KEY=your_api_key_here
+
+#### Mac/Linux (bash)
+```bash
+git clone https://github.com/ZachPinet/LEGO-Tracker.git
+cd LEGO-Tracker
+python3 -m venv .venv_legotracker
+source .venv_legotracker/bin/activate
+pip install .
+echo "REBRICKABLE_API_KEY=your_api_key_here" > .env
 ```
-5. Install the dependencies with 
+
+### Running the Application
+After installation and setup, run the tool with:
+```bash
+lego-tracker
 ```
-pip install -r requirements.txt
-```
-6. Run the program as a Python file. Please note that this tool has only been tested on a Windows system. 
 
 ## Load Set
-A created set can be selected from a dropdown list and loaded with the green "Load Set" button to display its list of parts in a grid. Each cell in the grid contains a unique part’s image, ID, color, quantity needed, and quantity had. 
+A created set can be selected from a dropdown list and loaded with the green "Load Set" button to display its list of parts in a grid. Each cell in the grid contains a unique part’s image, ID, color, quantity needed, and quantity had.
 
 The only editable field in each cell is the “have” field, which accepts any integer from 0 to the amount in the “need” field. When “have” equals “need”, the entire cell will be highlighted green, making it easy to tell which parts are still needed and which are not.
 
@@ -28,6 +48,6 @@ The yellow "Search Parts" button provides the user with a search bar to input se
 
 ## Future Updates:
 
-All of the core functions of the tool are considered complete. Future commits will likely focus on improving performance or fixing visual inconsistencies and aesthetics. 
+All of the core functions of the tool are considered complete. Future commits will likely focus on improving performance or fixing visual inconsistencies and aesthetics.
 
 However, a few smaller features may still be implemented, such as displaying collection statistics, changing settings within the program, and writing persistent notes for individual sets.

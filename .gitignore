@@ -210,3 +210,4 @@ __marimo__/
 .vscode/
 .venv_legotracker/
 test.py
+requirements.txt

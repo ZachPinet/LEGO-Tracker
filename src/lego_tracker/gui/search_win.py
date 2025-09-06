@@ -7,11 +7,15 @@ import urllib.request
 from PIL import Image, ImageTk
 from tkinter import messagebox, ttk
 
-from gui.win_helpers import configure_size, on_mousewheel, on_shift_mousewheel
+from .win_helpers import (
+    configure_size, 
+    on_mousewheel, 
+    on_shift_mousewheel,
+)
 
 
 # This returns a list of set IDs that need a specific part ID.
-def search_sets(input_query, set_data_dir='Set Data'):
+def search_sets(input_query, set_data_dir='set_data'):
     # Sanitize and split the search query
     query = "".join(
         c for c in input_query
@@ -84,7 +88,7 @@ def search_sets(input_query, set_data_dir='Set Data'):
 
 
 # This shows the search interface with a grid of results
-def show_search_window(columns=5, set_data_dir='Set Data'):
+def show_search_window(columns=5, set_data_dir='set_data'):
     search_window = tk.Toplevel()
     search_window.title("Search Parts")
     search_window.geometry(configure_size(search_window))

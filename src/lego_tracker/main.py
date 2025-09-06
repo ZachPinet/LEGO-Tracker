@@ -2,10 +2,10 @@ import os
 import tkinter as tk
 from tkinter import simpledialog, messagebox, ttk
 
-from gui.create_win import create_new_set
-from gui.load_win import show_set_grid
-from gui.search_win import show_search_window
-from gui.win_helpers import configure_size
+from .gui.create_win import create_new_set
+from .gui.load_win import show_set_grid
+from .gui.search_win import show_search_window
+from .gui.win_helpers import configure_size
 
 
 # This configures the aethetics of the window.
@@ -29,8 +29,8 @@ def configure_styles(window):
     }
 
 
-# This loops through the .txt files in Set Data and returns the set IDs.
-def list_sets(set_data_dir='Set Data'):
+# This loops through the .txt files in set_data and returns the set IDs.
+def list_sets(set_data_dir='set_data'):
     sets = []
     for filename in os.listdir(set_data_dir):
         if filename.endswith(".txt"):
@@ -40,7 +40,7 @@ def list_sets(set_data_dir='Set Data'):
 
 # This sets up the GUI for the main menu.
 def main():
-    set_data_dir = 'Set Data'
+    set_data_dir = 'set_data'
     columns = 5
 
     root = tk.Tk()

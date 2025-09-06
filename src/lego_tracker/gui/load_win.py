@@ -6,18 +6,22 @@ import urllib.request
 from PIL import Image, ImageTk
 from tkinter import messagebox, ttk
 
-from gui.win_helpers import configure_size, on_mousewheel, on_shift_mousewheel
+from .win_helpers import (
+    configure_size, 
+    on_mousewheel, 
+    on_shift_mousewheel,
+)
 
 
 # This loads the data from a set ID's .txt file.
-def load_set_data(set_title, set_data_dir='Set Data'):
+def load_set_data(set_title, set_data_dir='set_data'):
     with open(os.path.join(set_data_dir, f"{set_title}.txt"), 'r') as f:
         data = json.load(f)
     return data["parts"], data["stickers"]
 
 
 # This saves any updates to the set's data.
-def save_set_data(set_title, parts_data, set_data_dir='Set Data'):
+def save_set_data(set_title, parts_data, set_data_dir='set_data'):
     filepath = os.path.join(set_data_dir, f"{set_title}.txt")
     
     # Load existing data to preserve set_info and stickers
@@ -36,7 +40,7 @@ def save_set_data(set_title, parts_data, set_data_dir='Set Data'):
 
 
 # This shows a list of the part data from a specific set.
-def show_set_grid(set_title, columns=5, set_data_dir='Set Data'):
+def show_set_grid(set_title, columns=5, set_data_dir='set_data'):
     parts_data, stickers_data = load_set_data(set_title, set_data_dir)
 
     load_window = tk.Toplevel()

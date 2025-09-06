@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools >= 77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lego_tracker"
+version = "1.0.0"
+authors = [
+    {"name" = "Zach Pinet", "email" = "zachpinet@zachpi.net"}
+]
+description = "A tool to track inventories of required parts for LEGO sets."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.9"
+dependencies = [
+    "Pillow==11.3.0",
+    "python-dotenv==1.1.1",
+    "Requests==2.32.4"
+]
+
+[project.urls]
+Repository = "https://github.com/ZachPinet/LEGO-Tracker"
+
+[project.scripts]
+lego-tracker = "lego_tracker.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
