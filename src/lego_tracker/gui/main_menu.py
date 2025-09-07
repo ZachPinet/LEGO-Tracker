@@ -1,15 +1,16 @@
 import os
 import tkinter as tk
 from tkinter import simpledialog, messagebox, ttk
+from typing import Dict, List, Any
 
-from .gui.create_win import create_new_set
-from .gui.load_win import show_set_grid
-from .gui.search_win import show_search_window
-from .gui.win_helpers import configure_size
+from .create_win import create_new_set
+from .load_win import show_set_grid
+from .search_win import show_search_win
+from .win_helpers import configure_size
 
 
 # This configures the aethetics of the window.
-def configure_styles(window):
+def configure_styles(window: tk.Tk) -> Dict[str, Any]:
     window.configure(bg='#00173c')
 
     label_font = ('Rockwell', 20, 'bold', 'underline')
@@ -30,8 +31,8 @@ def configure_styles(window):
 
 
 # This loops through the .txt files in set_data and returns the set IDs.
-def list_sets(set_data_dir='set_data'):
-    sets = []
+def list_sets(set_data_dir: str = 'set_data') -> List[str]:
+    sets: List[str] = []
     for filename in os.listdir(set_data_dir):
         if filename.endswith(".txt"):
             sets.append(filename[:-4])
@@ -39,7 +40,7 @@ def list_sets(set_data_dir='set_data'):
 
 
 # This sets up the GUI for the main menu.
-def main():
+def main() -> None:
     set_data_dir = 'set_data'
     columns = 5
 
@@ -79,7 +80,7 @@ def main():
 
     # Search in all sets for a specific part ID
     def search():
-        show_search_window(columns, set_data_dir)
+        show_search_win(columns, set_data_dir)
 
     # Create buttons for the main menu
     load_button = tk.Button(

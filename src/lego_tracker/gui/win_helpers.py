@@ -1,5 +1,8 @@
+import tkinter as tk
+from typing import Union
+
 # This configures the size and position of the window.
-def configure_size(window):
+def configure_size(window: Union[tk.Tk, tk.Toplevel]) -> str:
     screen_width = window.winfo_screenwidth()
     screen_height = window.winfo_screenheight()
     win_width = screen_width // 2
@@ -11,13 +14,13 @@ def configure_size(window):
 
 
 # These handle mouse wheel scrolling for canvas movement.
-def on_mousewheel(canvas, event):
+def on_mousewheel(canvas: tk.Canvas, event: tk.Event) -> None:
     if (canvas.canvasy(0) > 0 or 
         canvas.canvasy(canvas.winfo_height()) < canvas.bbox("all")[3]
     ):
         canvas.yview_scroll(int(-1*(event.delta/120)), "units")
 
-def on_shift_mousewheel(canvas, event):
+def on_shift_mousewheel(canvas: tk.Canvas, event: tk.Event) -> None:
     if (
         canvas.canvasx(0) > 0 or 
         canvas.canvasx(canvas.winfo_width()) < canvas.bbox("all")[2]

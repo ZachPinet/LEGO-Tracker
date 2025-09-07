@@ -5,6 +5,7 @@ import tkinter as tk
 import urllib.request
 from PIL import Image, ImageTk
 from tkinter import messagebox, ttk
+from typing import List, Dict, Any, Tuple
 
 from .win_helpers import (
     configure_size, 
@@ -14,14 +15,23 @@ from .win_helpers import (
 
 
 # This loads the data from a set ID's .txt file.
-def load_set_data(set_title, set_data_dir='set_data'):
+def load_set_data(
+        set_title: str, 
+        set_data_dir: str = 'set_data'
+) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    
     with open(os.path.join(set_data_dir, f"{set_title}.txt"), 'r') as f:
         data = json.load(f)
     return data["parts"], data["stickers"]
 
 
 # This saves any updates to the set's data.
-def save_set_data(set_title, parts_data, set_data_dir='set_data'):
+def save_set_data(
+    set_title: str, 
+    parts_data: List[Dict[str, Any]], 
+    set_data_dir: str = 'set_data'
+) -> None:
+    
     filepath = os.path.join(set_data_dir, f"{set_title}.txt")
     
     # Load existing data to preserve set_info and stickers
@@ -40,7 +50,12 @@ def save_set_data(set_title, parts_data, set_data_dir='set_data'):
 
 
 # This shows a list of the part data from a specific set.
-def show_set_grid(set_title, columns=5, set_data_dir='set_data'):
+def show_set_grid(
+        set_title: str, 
+        columns: int = 5, 
+        set_data_dir: str = 'set_data'
+) -> None:
+    
     parts_data, stickers_data = load_set_data(set_title, set_data_dir)
 
     load_window = tk.Toplevel()

@@ -1,12 +1,13 @@
 import json
 import os
 import requests
+from typing import Dict, List, Any, Optional
 
 from ..settings import REBRICKABLE_API_KEY
 
 
 # Split text into individual words for searching
-def split_into_search_words(text):
+def split_into_search_words(text: Optional[str]) -> List[str]:
     import re
     if not text:
         return []
@@ -15,7 +16,7 @@ def split_into_search_words(text):
     return [word.strip() for word in words if word.strip()]
 
 # This gets comprehensive set information from the Rebrickable API
-def get_set_info(set_id):
+def get_set_info(set_id: str) -> Dict[str, Any]:
     # Get basic set information
     set_url = f"https://rebrickable.com/api/v3/lego/sets/{set_id}/"
     headers = {"Authorization": f"key {REBRICKABLE_API_KEY}"}
@@ -132,7 +133,7 @@ def get_set_info(set_id):
 
 
 # This creates a new .txt file for a set.
-def create_new_set(set_id, set_data_dir='set_data'):
+def create_new_set(set_id: str, set_data_dir: str = 'set_data') -> None:
     # Get set information
     api_data = get_set_info(set_id)
     set_info = api_data["set_info"]

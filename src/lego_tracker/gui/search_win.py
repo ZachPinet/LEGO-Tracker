@@ -6,6 +6,7 @@ import tkinter as tk
 import urllib.request
 from PIL import Image, ImageTk
 from tkinter import messagebox, ttk
+from typing import List, Dict, Any
 
 from .win_helpers import (
     configure_size, 
@@ -15,13 +16,17 @@ from .win_helpers import (
 
 
 # This returns a list of set IDs that need a specific part ID.
-def search_sets(input_query, set_data_dir='set_data'):
+def search_sets(
+        input_query: str, 
+        set_data_dir: str = 'set_data'
+) -> List[Dict[str, Any]]:
+    
     # Sanitize and split the search query
     query = "".join(
         c for c in input_query
         if c.isalnum() or c in (' ', '-', "'")
     )
-    search_terms = [
+    search_terms: List[str] = [
         term.strip().lower() for term in query.split() if term.strip()
     ]
 
@@ -30,7 +35,7 @@ def search_sets(input_query, set_data_dir='set_data'):
         return []
     
     # Collect all unique parts that are still needed from each set
-    needed_parts = {}
+    needed_parts: Dict[tuple, Dict[str, Any]] = {}
     
     for set_file in os.listdir(set_data_dir):
         if not set_file.endswith('.txt'):
@@ -88,7 +93,7 @@ def search_sets(input_query, set_data_dir='set_data'):
 
 
 # This shows the search interface with a grid of results
-def show_search_window(columns=5, set_data_dir='set_data'):
+def show_search_win(columns: int = 5, set_data_dir: str = 'set_data') -> None:
     search_window = tk.Toplevel()
     search_window.title("Search Parts")
     search_window.geometry(configure_size(search_window))
