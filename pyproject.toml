@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "lego_tracker"
 version = "1.0.0"
 authors = [
-    {"name" = "Zach Pinet", "email" = "zachpinet@zachpi.net"}
+    {name = "Zach Pinet", email = "zachpinet@zachpi.net"}
 ]
 description = "A tool to track inventories of required parts for LEGO sets."
 readme = "README.md"
@@ -19,10 +19,11 @@ dependencies = [
 ]
 
 [project.urls]
+Homepage = "https://github.com/ZachPinet/LEGO-Tracker"
 Repository = "https://github.com/ZachPinet/LEGO-Tracker"
 
 [project.scripts]
-lego-tracker = "lego_tracker.main:main"
+lego-tracker = "lego_tracker.gui.main_menu:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
